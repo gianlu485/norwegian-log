@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -669,6 +669,15 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
         <p class="muted" style="margin-top:.75rem">The token moves along your route during playback.</p>
       </div>
       <div class="panel" id="panel-settings">
+      <div class="sec-lbl">Road routing</div>
+      <div style="margin-bottom:.75rem;">
+        <div style="display:flex;gap:.4rem;">
+          <input type="text" id="ors-key" placeholder="Paste your ORS key…" autocomplete="off" spellcheck="false" inputmode="text" style="flex:1;font-size:16px;" oninput="_orsKey=this.value.trim();try{localStorage.setItem('ors-key',_orsKey);}catch(e){}document.getElementById('ors-key-status').textContent=_orsKey?'✓ Saved':'';document.getElementById('ors-key-status').style.color='var(--teal)'" onchange="_orsKey=this.value.trim();try{localStorage.setItem('ors-key',_orsKey);}catch(e){}">
+        </div>
+        <div id="ors-key-status" style="font-size:.7rem;font-family:var(--FU);letter-spacing:.08em;margin-top:.2rem;height:.9rem;"></div>
+        <p style="font-size:.68rem;opacity:.65;margin:.3rem 0 0;font-family:var(--FU)">Get a free key at <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color:var(--teal);text-decoration:underline">openrouteservice.org</a> — enables road-following for ground vehicles.</p>
+      </div>
+        <div class="divider"></div>
         <div class="sec-lbl">Music playlist</div>
         <p class="muted" style="font-size:.78rem;margin-bottom:.6rem">Tracks play in sequence during the whole animation, with 5s fade in/out.</p>
         <button class="btn btn-teal btn-full btn-sm upload-wrap" style="margin-bottom:.5rem">
@@ -824,6 +833,7 @@ const VEHICLES=[
   {e:'🚗',n:'Car'},{e:'✈️',n:'Plane'},{e:'⛵',n:'Boat'},
   {e:'🚂',n:'Train'},{e:'🚴',n:'Bike'},{e:'🏍',n:'Moto'},
   {e:'🚌',n:'Bus'},{e:'🚁',n:'Heli'},{e:'🛸',n:'UFO'},
+  {e:'🚶',n:'Walk'},
 ];
 (function initVehicles(){
   const g=document.getElementById('vgrid');
@@ -969,7 +979,7 @@ function buildCard(d,i){
 
   // Build legs: one leg per segment (dep→stop0, stop0→stop1, …)
   // leg index = index of the DESTINATION stop (0 = dep→stop[0])
-  const LEG_VEHICLES=['🚗','✈️','⛵','🚂','🚴','🏍','🚌','🚁','🛸'];
+  const LEG_VEHICLES=['🚗','✈️','⛵','🚂','🚴','🏍','🚌','🚁','🛸','🚶'];
   function legSel(di,li,cur){
     return LEG_VEHICLES.map(v=>`<span class="leg-v${v===cur?' on':''}" onclick="setLegVehicle(${di},${li},'${v}')">${v}</span>`).join('');
   }
@@ -1557,6 +1567,136 @@ function bearingToDir(b){
   return 'W';
 }
 
+// ═══════════════════════════════════════
+// ORS ROUTING + DYNAMIC ZOOM
+// ═══════════════════════════════════════
+
+let _orsKey = '';
+let _routeLoading = false; // true while ORS fetch is in progress
+const GROUND_VEHICLES_SET = new Set(['🚗','🏍','🚌','🚴','🚂','⛵','🚶']);
+
+// Dynamic zoom based on leg distance (meters)
+function zoomForDist(dist){
+  if(dist <  3000) return 13;  // < 3km: very close stops
+  if(dist < 10000) return 12;  // 3–10km: city scale
+  if(dist < 30000) return 11;  // 10–30km: town scale
+  if(dist < 80000) return  9;  // 30–80km: regional
+  if(dist <300000) return  7;  // 80–300km: country
+  return 5;                     // > 300km: continental
+}
+
+// Downsample a polyline to ~targetDist meters between points
+function sampleRoute(coords, targetDist){
+  if(!coords||coords.length<2) return coords;
+  const out=[coords[0]];
+  let last=coords[0];
+  for(let i=1;i<coords.length;i++){
+    const d=L.latLng(last[1],last[0]).distanceTo(L.latLng(coords[i][1],coords[i][0]));
+    if(d>=targetDist){
+      out.push(coords[i]);
+      last=coords[i];
+    }
+  }
+  // Always include last point — compare by value, not reference
+  const lp=coords[coords.length-1];
+  const op=out[out.length-1];
+  if(op[0]!==lp[0]||op[1]!==lp[1]) out.push(lp);
+  return out;
+}
+
+// Fetch road route from ORS. Returns array of [lng,lat] or null on failure.
+async function fetchORSRoute(a, b, profile){
+  if(!_orsKey) return null;
+  try{
+    const url=`https://api.openrouteservice.org/v2/directions/${profile}/geojson`;
+    const resp=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':_orsKey},
+      body:JSON.stringify({coordinates:[[a.lng,a.lat],[b.lng,b.lat]]})
+    });
+    if(!resp.ok) return null;
+    const data=await resp.json();
+    return data.features[0].geometry.coordinates; // array of [lng,lat]
+  } catch(e){ return null; }
+}
+
+// Choose ORS profile for vehicle. Returns null for vehicles without road routing.
+function orsProfile(v){
+  if(v==='🚴') return 'cycling-regular';
+  if(v==='🚶') return 'foot-walking';
+  if(v==='⛵') return null; // boat: no ORS profile, use straight line
+  if(v==='🚂') return null; // train: no road profile, use straight line
+  return 'driving-car'; // 🚗 🏍 🚌
+}
+
+// Build flat points for a leg, using ORS road route if available
+async function buildSegPtsRoaded(a, b, v, legIdx){
+  const isAir=AIR_VEHICLES.has(v);
+  let coords=null; // [lng,lat] pairs
+  const profile=orsProfile(v);
+
+  if(!isAir && profile && GROUND_VEHICLES_SET.has(v) && _orsKey){
+    coords=await fetchORSRoute(a,b,profile);
+  }
+
+  if(coords && coords.length>=2){
+    // Downsample to 300m
+    const sampled=sampleRoute(coords,300);
+    const pts=[];
+    for(let k=0;k<sampled.length;k++){
+      const [lng,lat]=sampled[k];
+      pts.push({lat,lng,v,legIdx:legIdx!==undefined?legIdx:0,dir:'N',roaded:true});
+    }
+    return pts;
+  }
+
+  // Fallback: straight line interpolation (original buildSegPts logic)
+  return buildSegPts(a,b,v,legIdx);
+}
+
+// Per-leg route distances (meters), populated by buildFlatPtsAsync
+// Used by step() for accurate dynamic zoom on roaded segments
+let _legRouteDist = {};
+
+// Build full flatPts asynchronously using ORS where possible
+async function buildFlatPtsAsync(i){
+  _routeLoading=true;
+  const pts=allPts(i),flat=[];
+  _legRouteDist={};
+  if(pts.length<2){ _routeLoading=false; return flat; }
+  const lv=days[i].legVehicles||[];
+  // Fetch all legs in parallel for speed, then reassemble in order
+  const legPromises=[];
+  for(let j=0;j<pts.length-1;j++){
+    const a=pts[j],b=pts[j+1];
+    const legV=lv[j]||'🚗';
+    legPromises.push(buildSegPtsRoaded(a,b,legV,j).then(seg=>({j,a,b,seg})));
+  }
+  let results;
+  try{
+    results=await Promise.all(legPromises);
+  } catch(e){
+    // If any leg fetch throws unexpectedly, fall back to straight-line for all legs
+    console.warn('ORS parallel fetch failed, using straight-line fallback',e);
+    _routeLoading=false;
+    return buildFlatPts(i);
+  }
+  // Sort by leg index (Promise.all preserves order but be explicit)
+  results.sort((x,y)=>x.j-y.j);
+  for(const {j,a,b,seg} of results){
+    if(seg.length>=2 && seg[0].roaded){
+      let d=0;
+      for(let k=1;k<seg.length;k++) d+=L.latLng(seg[k-1].lat,seg[k-1].lng).distanceTo(L.latLng(seg[k].lat,seg[k].lng));
+      _legRouteDist[j]=d;
+    } else {
+      _legRouteDist[j]=L.latLng(a.lat,a.lng).distanceTo(L.latLng(b.lat,b.lng));
+    }
+    flat.push(...seg);
+  }
+  _routeLoading=false;
+  return flat;
+}
+
 function buildSegPts(a, b, v, legIdx){
   const isAir = AIR_VEHICLES.has(v);
   const dist = L.latLng(a.lat, a.lng).distanceTo(L.latLng(b.lat, b.lng));
@@ -1591,6 +1731,7 @@ function buildFlatPts(i){
 
 function playAll(){
   if(!days.length){alert('Add at least one day with 2+ points!');return;}
+  if(_routeLoading) return;
   if(animating&&!paused) return;
   if(paused){resume();return;}
   curDay=0; curIdx=0; animating=true; paused=false;
@@ -1629,17 +1770,41 @@ function startDay(i){
   document.getElementById('dot').classList.add('on');
   document.getElementById('prog-lbl').textContent=d.name;
 
-  // Build route (straight line interpolation)
-  flatPts=buildFlatPts(i);
-  if(d.dep){
-    showCityToast(d.dep.name);
-    if(d.depMedia&&d.depMedia.length){
-      _pendingStep=true;
-      showDepPopup(d);
-      return;
+  // Build route (async: ORS road routing if key set, else straight line)
+  // Show loading toast only if ORS key set and there are ground vehicle legs
+  // A day has ground legs if any leg vehicle is ground (default vehicle 🚗 is ground)
+  const _numLegs=Math.max(0,pts.length-1); // pts already computed above
+  const _lv=d.legVehicles||[];
+  const _hasGroundLegs=_numLegs>0&&(
+    _lv.length===0 || // no explicit vehicles → all default to 🚗 (ground)
+    Array.from({length:_numLegs},(__,j)=>_lv[j]||'🚗').some(v=>GROUND_VEHICLES_SET.has(v))
+  );
+  if(_orsKey && _hasGroundLegs) showCityToast('Loading route…');
+  buildFlatPtsAsync(i).then(fp=>{
+    if(!animating) return; // user reset while ORS was fetching
+    flatPts=fp;
+    if(d.dep){
+      showCityToast(d.dep.name);
+      if(d.depMedia&&d.depMedia.length){
+        _pendingStep=true;
+        showDepPopup(d);
+        return;
+      }
+    } else {
+      // No dep — dismiss any "Loading route…" toast so it doesn't linger during animation
+      const _ct=document.getElementById('city-toast');
+      if(_ct) _ct.classList.remove('show');
+      clearTimeout(_cityToastTO);
     }
-  }
-  step();
+    step();
+  }).catch(e=>{
+    _routeLoading=false;
+    console.error('Route build failed',e);
+    if(!animating) return; // user may have reset while fetch was in progress
+    showCityToast('Route error — retrying straight line');
+    flatPts=buildFlatPts(i);
+    step();
+  });
 }
 
 let _curLegV=null;
@@ -1659,7 +1824,7 @@ function hideBubble(){
 }
 
 // Zoom levels per vehicle type
-const VEHICLE_ZOOM={'✈️':5,'🚁':7,'🛸':5,'🚗':10,'🚴':11,'🏍':10,'🚌':9,'🚂':8,'⛵':7};
+const VEHICLE_ZOOM={'✈️':5,'🚁':7,'🛸':5,'🚗':10,'🚴':11,'🏍':10,'🚌':9,'🚂':8,'⛵':7,'🚶':14};
 const PLANE_VEHICLES=new Set(['✈️','🛸','🚁']);
 
 function getZoomForVehicle(v){ return VEHICLE_ZOOM[v]||9; }
@@ -1788,27 +1953,42 @@ function step(){
   const pt=flatPts[curIdx];
   const nextPt=flatPts[Math.min(curIdx+1,flatPts.length-1)];
 
-  // ── Leg vehicle change: zoom + new icon ──
-  if(pt.v && pt.v!==_curLegV){
-    _curLegV=pt.v;
-    const z=getZoomForVehicle(pt.v);
-    map.setZoom(z,{animate:true});
-  }
-  // ── Leg index change: show leg quote bubble ──
+  // ── Leg change: dynamic zoom via setView ──
   const ptLegIdx = pt.legIdx !== undefined ? pt.legIdx : -1;
-  if(ptLegIdx !== _curLegIdx){
+  const legChanged = ptLegIdx !== _curLegIdx;
+  let _setViewThisFrame=false;
+  if(legChanged){
     _curLegIdx = ptLegIdx;
+    // Use actual route distance for zoom (road dist > crow-flies for curved roads)
+    const legDist = _legRouteDist[ptLegIdx] || 0;
+    const targetZoom = legDist > 0 ? zoomForDist(legDist) : getZoomForVehicle(pt.v||vehicle);
+    // setView positions map at leg start; skip redundant panTo this frame
+    map.setView([pt.lat,pt.lng],targetZoom,{animate:false});
+    _setViewThisFrame=true;
     const d=days[curDay];
     const lq = d.legQuotes && d.legQuotes[ptLegIdx];
     if(lq && lq.trim()){ clearTimeout(_bubbleTO); _bubbleTO=setTimeout(()=>showBubble(lq), 1500); }
     else hideBubble();
   }
+  // ── Vehicle change (different vehicle same leg — shouldn't happen but guard anyway) ──
+  if(pt.v && pt.v!==_curLegV){
+    _curLegV=pt.v;
+  }
 
   // ── Bearing / orientation ──
+  // On last frame nextPt===pt (same coords) → use previous frame's bearing instead
   let bearing=0;
   if(nextPt && (nextPt.lat!==pt.lat || nextPt.lng!==pt.lng)){
     bearing=calcBearing(pt.lat,pt.lng,nextPt.lat,nextPt.lng);
+  } else if(curIdx>0){
+    // Last frame or duplicate point: inherit bearing from previous frame
+    const prevPt=flatPts[curIdx-1];
+    if(prevPt && (pt.lat!==prevPt.lat || pt.lng!==prevPt.lng)){
+      bearing=calcBearing(prevPt.lat,prevPt.lng,pt.lat,pt.lng);
+    }
   }
+  // For ground roaded segments: full bearing-based rotation (not just E/W flip)
+  const isRoaded = pt.roaded===true;
 
   // ── Build token div with classes ──
   const v=pt.v||vehicle;
@@ -1834,10 +2014,10 @@ function step(){
       addTrailPoint(pt.lat,pt.lng);
       tokenMkr.setIcon(icon);
       tokenMkr.setLatLng([pt.lat,pt.lng]);
-      map.panTo([pt.lat,pt.lng],{animate:false});
+      if(!_setViewThisFrame) map.panTo([pt.lat,pt.lng],{animate:false});
       if(curIdx===0){ const d=days[curDay]; if(d.dep) showCityToast(d.dep.name); }
       checkStopArrival(pt.lat,pt.lng);
-      const pct=curIdx/(flatPts.length-1);
+      const pct=flatPts.length>1?curIdx/(flatPts.length-1):1;
       document.getElementById('prog-fill').style.width=(pct*100)+'%';
       document.getElementById('prog-pct').textContent=Math.round(pct*100)+'%';
       curIdx++;
@@ -1852,10 +2032,10 @@ function step(){
     addTrailPoint(pt.lat,pt.lng);
     tokenMkr.setIcon(airIcon);
     tokenMkr.setLatLng([pt.lat,pt.lng]);
-    map.panTo([pt.lat,pt.lng],{animate:false});
+    if(!_setViewThisFrame) map.panTo([pt.lat,pt.lng],{animate:false});
     if(curIdx===0){ const d=days[curDay]; if(d.dep) showCityToast(d.dep.name); }
     checkStopArrival(pt.lat,pt.lng);
-    const pct=curIdx/(flatPts.length-1);
+    const pct=flatPts.length>1?curIdx/(flatPts.length-1):1;
     document.getElementById('prog-fill').style.width=(pct*100)+'%';
     document.getElementById('prog-pct').textContent=Math.round(pct*100)+'%';
     curIdx++;
@@ -1863,30 +2043,45 @@ function step(){
     return;
   } else {
     if(v==='🚗'){
-      // iOS 🚗 emoji points LEFT by default. scaleX(-1) when going east to flip right.
-      const goingWest=(bearing>180 && bearing<360);
-      const icon=L.divIcon({
-        html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${goingWest?1:-1});transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
-        className:'',iconSize:[80,80],iconAnchor:[40,40]
-      });
+      // Roaded: use SVG car with full bearing rotation.
+      // Non-roaded: emoji with E/W flip only.
+      let carIcon;
+      if(isRoaded){
+        // Use SVG car (muso Nord) with true bearing — cross-platform, no emoji offset needed
+        carIcon=L.divIcon({
+          html:`<div class="token rumble" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:rotate(${bearing}deg);transform-origin:center center;">${carSVG()}</div>`,
+          className:'',iconSize:[80,80],iconAnchor:[40,40]
+        });
+      } else {
+        const goingWest=(bearing>180 && bearing<360);
+        carIcon=L.divIcon({
+          html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${goingWest?1:-1});transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
+          className:'',iconSize:[80,80],iconAnchor:[40,40]
+        });
+      }
       addTrailPoint(pt.lat,pt.lng);
-      tokenMkr.setIcon(icon);
+      tokenMkr.setIcon(carIcon);
       tokenMkr.setLatLng([pt.lat,pt.lng]);
-      map.panTo([pt.lat,pt.lng],{animate:false});
+      if(!_setViewThisFrame) map.panTo([pt.lat,pt.lng],{animate:false});
       if(curIdx===0){ const d=days[curDay]; if(d.dep) showCityToast(d.dep.name); }
       checkStopArrival(pt.lat,pt.lng);
-      const pct=curIdx/(flatPts.length-1);
+      const pct=flatPts.length>1?curIdx/(flatPts.length-1):1;
       document.getElementById('prog-fill').style.width=(pct*100)+'%';
       document.getElementById('prog-pct').textContent=Math.round(pct*100)+'%';
       curIdx++;
       animTO=setTimeout(step,Math.max(4,55-speed*5));
       return;
     }
-    const goingWest=(bearing>180 && bearing<360);
-    tokenStyle=`scaleX(${goingWest?1:-1})`;
+    if(isRoaded){
+      // Ground emoji (🏍🚌🚴🚂⛵) points RIGHT natively → -90° offset to face North
+      tokenStyle=`rotate(${bearing-90}deg)`;
+    } else {
+      const goingWest=(bearing>180 && bearing<360);
+      tokenStyle=`scaleX(${goingWest?1:-1})`;
+    }
   }
 
-  // tokenStyle is now a transform value (scaleX) for ground vehicles
+  // tokenStyle is now a transform value for ground vehicles
   if(!tokenStyle) tokenStyle='scaleX(1)';
   const icon=L.divIcon({
     html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:${tokenStyle};transform-origin:center center;"><div class="token ${extraClass}">${v}</div></div>`,
@@ -1899,7 +2094,7 @@ function step(){
 
 
   tokenMkr.setLatLng([pt.lat,pt.lng]);
-  map.panTo([pt.lat,pt.lng],{animate:false});
+  if(!_setViewThisFrame) map.panTo([pt.lat,pt.lng],{animate:false});
 
   // ── City toast at departure (first frame) ──
   if(curIdx===0){
@@ -1909,7 +2104,7 @@ function step(){
   // ── City toast at stop arrival ──
   checkStopArrival(pt.lat,pt.lng);
 
-  const pct=curIdx/(flatPts.length-1);
+  const pct=flatPts.length>1?curIdx/(flatPts.length-1):1;
   document.getElementById('prog-fill').style.width=(pct*100)+'%';
   document.getElementById('prog-pct').textContent=Math.round(pct*100)+'%';
   curIdx++;
@@ -1928,7 +2123,7 @@ function resume(){
   step();
 }
 function resetAnim(){
-  clearTimeout(animTO); clearTimeout(_bubbleTO); animating=false; paused=false; _curLegV=null; _curLegIdx=-1; hideBubble(); map.closePopup();
+  clearTimeout(animTO); clearTimeout(_bubbleTO); animating=false; paused=false; _routeLoading=false; _curLegV=null; _curLegIdx=-1; _legRouteDist={}; hideBubble(); map.closePopup();
   clearTrail();
   // Reset popup shown flags
   days.forEach(d=>d.stops.forEach(s=>{ s._popupShown=false; }));
@@ -2164,6 +2359,17 @@ function loadJourney(e){
 // INIT
 // ═══════════════════════════
 renderList();
+// Restore ORS key from localStorage (once, at startup)
+try{
+  const _sk=localStorage.getItem('ors-key');
+  if(_sk){
+    _orsKey=_sk;
+    const _inp=document.getElementById('ors-key');
+    if(_inp) _inp.value=_sk;
+    const _st=document.getElementById('ors-key-status');
+    if(_st){_st.textContent='✓ Saved';_st.style.color='var(--teal)';}
+  }
+} catch(e){}
 </script>
 </body>
 </html>
