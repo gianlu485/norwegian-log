@@ -2014,10 +2014,12 @@ function step(){
     if(v==='🚗'){
       // Always use emoji 🚗 with E/W flip for straight-line,
       // or bearing-90 rotation for roaded segments (same pattern as other ground vehicles).
-      // 🚗 points LEFT natively → bearing-90 makes it face forward on road.
+      // 🚗 points LEFT natively → bearing+90 makes it face forward on road.
       let carTransform;
       if(isRoaded){
-        // 🚗 points LEFT natively → +90° offset to face forward (North at bearing=0)
+        // 🚗 points LEFT (West) natively — confirmed by straight-line branch:
+        // goingWest=true → scaleX(1) = no flip = native = left-pointing.
+        // To face North (bearing=0): rotate LEFT→UP = +90°CW → rotate(bearing+90)
         carTransform=`rotate(${bearing+90}deg)`;
       } else {
         const goingWest=(bearing>180 && bearing<360);
