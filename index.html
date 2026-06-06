@@ -1493,7 +1493,7 @@ function tokenIcon(v, angle, dir){
   if(vv==='🚗'){
     const goingWest = angle !== undefined ? (angle>180 && angle<360) : false;
     return L.divIcon({
-      html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${goingWest?1:-1});transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
+      html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${goingWest?-1:1});transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
       className:'',iconSize:[80,80],iconAnchor:[40,40]
     });
   }
@@ -1508,7 +1508,7 @@ function tokenIcon(v, angle, dir){
   // Ground vehicles (🏍 🚌 🚴 🚂 ⛵): outer scaleX for E/W, inner rumble for shake
   const gw = angle !== undefined ? (angle>180 && angle<360) : false;
   return L.divIcon({
-    html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${gw?1:-1});transform-origin:center center;"><div class="token rumble">${vv}</div></div>`,
+    html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${gw?-1:1});transform-origin:center center;"><div class="token rumble">${vv}</div></div>`,
     className:'',iconSize:[80,80],iconAnchor:[40,40]
   });
 }
@@ -2017,7 +2017,7 @@ function step(){
       // 🚗 is a 3D emoji — rotate() flips it upside-down at certain angles.
       // Use E/W scaleX flip for both roaded and straight-line segments.
       const goingWest=(bearing>180 && bearing<360);
-      carTransform=`scaleX(${goingWest?1:-1})`;
+      carTransform=`scaleX(${goingWest?-1:1})`;
       const carIcon=L.divIcon({
         html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:${carTransform};transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
         className:'',iconSize:[80,80],iconAnchor:[40,40]
@@ -2040,7 +2040,7 @@ function step(){
       tokenStyle=`rotate(${bearing-90}deg)`;
     } else {
       const goingWest=(bearing>180 && bearing<360);
-      tokenStyle=`scaleX(${goingWest?1:-1})`;
+      tokenStyle=`scaleX(${goingWest?-1:1})`;
     }
   }
 
