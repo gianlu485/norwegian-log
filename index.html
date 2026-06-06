@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -489,7 +489,7 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
   width:32px;height:32px;border-radius:5px;
   border:1.5px dashed rgba(26,53,82,.25);
   background:rgba(255,255,255,.5);
-  font-size:.9rem;cursor:pointer;
+  font-size:.9rem;cursor:pointer;padding:0;
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;touch-action:manipulation;
   position:relative;overflow:hidden;
@@ -498,9 +498,7 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
 .stop-photo-btn.has-media{
   border:1.5px solid var(--teal);background:rgba(46,139,122,.1);
 }
-.stop-photo-btn input[type=file]{
-  position:absolute;inset:0;opacity:0;cursor:pointer;font-size:1px;
-}
+/* .stop-photo-btn input[type=file] rule removed — file inputs are now hidden outside the button */
 
 /* ── TRANSITION OVERLAY ── */
 .overlay{
@@ -940,10 +938,8 @@ function buildCard(d,i){
         <div class="stop-locked">
           <div class="stop-dot dep">✈</div>
           <span class="stop-name">${d.dep.name}</span>
-          <label class="stop-photo-btn${hasDepMedia?' has-media':''}" title="${hasDepMedia?d.depMedia.length+' media':'Add photo/video'}">
-            ${hasDepMedia?'📸':'📷'}
-            <input type="file" accept="image/*,video/*" multiple onchange="uploadDepMedia(${i},event)">
-          </label>
+          <button type="button" class="stop-photo-btn${hasDepMedia?' has-media':''}" title="${hasDepMedia?d.depMedia.length+' media':'Add photo/video'}" onclick="document.getElementById('dep-file-${i}').click()">${hasDepMedia?'📸':'📷'}</button>
+          <input type="file" id="dep-file-${i}" accept="image/*,video/*" multiple style="display:none" onchange="uploadDepMedia(${i},event)">
           <button class="stop-del2" onclick="clearDep(${i})">✕</button>
         </div>
         ${hasDepMedia?`<div class="media-strip" style="padding:.3rem 0 .1rem 4px;">${d.depMedia.map((m,mi)=>`
@@ -964,10 +960,8 @@ function buildCard(d,i){
       <div class="stop-locked">
         <div class="stop-dot dep">→</div>
         <span class="stop-name" style="opacity:.6;font-style:italic">${d.dep?d.dep.name:'\u2014'}</span>
-        <label class="stop-photo-btn${hasDepMediaI?' has-media':''}" title="${hasDepMediaI?d.depMedia.length+' media':'Add departure photo'}">
-          ${hasDepMediaI?'\ud83d\udcf8':'\ud83d\udcf7'}
-          <input type="file" accept="image/*,video/*" multiple onchange="uploadDepMedia(${i},event)">
-        </label>
+        <button type="button" class="stop-photo-btn${hasDepMediaI?' has-media':''}" title="${hasDepMediaI?d.depMedia.length+' media':'Add departure photo'}" onclick="document.getElementById('dep-file-${i}').click()">${hasDepMediaI?'📸':'📷'}</button>
+        <input type="file" id="dep-file-${i}" accept="image/*,video/*" multiple style="display:none" onchange="uploadDepMedia(${i},event)">
         <span class="stop-auto-lbl">auto</span>
       </div>
       ${hasDepMediaI?`<div class="media-strip" style="padding:.3rem 0 .1rem 4px;">${d.depMedia.map((m,mi)=>`
@@ -1009,10 +1003,8 @@ function buildCard(d,i){
       <div style="display:flex;align-items:center;gap:.45rem;width:100%;">
         <div class="stop-dot">${si+1}</div>
         <span class="stop-name">${s.name}</span>
-        <label class="stop-photo-btn${hasStopMedia?' has-media':''}" title="${hasStopMedia?s.media.length+' media':'Add photo/video'}">
-          ${hasStopMedia?'📸':'📷'}
-          <input type="file" accept="image/*,video/*" multiple onchange="uploadStopMedia(${i},${si},event)">
-        </label>
+        <button type="button" class="stop-photo-btn${hasStopMedia?' has-media':''}" title="${hasStopMedia?s.media.length+' media':'Add photo/video'}" onclick="document.getElementById('stop-file-${i}-${si}').click()">${hasStopMedia?'📸':'📷'}</button>
+        <input type="file" id="stop-file-${i}-${si}" accept="image/*,video/*" multiple style="display:none" onchange="uploadStopMedia(${i},${si},event)">
         <button class="stop-edit2" onclick="toggleStopEdit(${i},${si})">✏️</button>
         <button class="stop-del2" onclick="removeStop(${i},${si})">✕</button>
       </div>
@@ -1090,7 +1082,8 @@ function buildCard(d,i){
         <div class="sec-lbl">Photos & Videos</div>
         <div class="media-strip">
           ${mediaHTML}
-          <button class="m-add">+<input type="file" accept="image/*,video/*" multiple onchange="uploadMedia(${i},event)"></button>
+          <button class="m-add" onclick="document.getElementById('day-file-${i}').click()">+</button>
+          <input type="file" id="day-file-${i}" accept="image/*,video/*" multiple style="display:none" onchange="uploadMedia(${i},event)">
         </div>
       </div>
     </div>
@@ -1483,30 +1476,6 @@ function planeSVG(){
 // Body points toward the direction of travel.
 // N = nose up, E = nose right, S = nose down, W = nose left.
 // Colors: body --fjord (#1b3a52), windows rgba(200,221,232,.7), wheels #071118
-function carSVG(){
-  // Static SVG pointing North (nose at top). No transform here.
-  // Rotation is applied on the outer div by the caller, same pattern as planeSVG().
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
-    style="display:block;filter:drop-shadow(0 3px 10px rgba(0,0,0,.85));">
-    <!-- Body: centered in 64x64, taller than wide (portrait car top-down) -->
-    <rect x="17" y="6"  width="30" height="52" rx="8" fill="#1b3a52"/>
-    <!-- Windscreen (front/nose, top) -->
-    <rect x="21" y="10" width="22" height="13" rx="3" fill="rgba(200,221,232,.75)"/>
-    <!-- Rear window -->
-    <rect x="21" y="41" width="22" height="10" rx="3" fill="rgba(200,221,232,.5)"/>
-    <!-- Front headlights -->
-    <rect x="18" y="7"  width="6" height="4" rx="2" fill="#f0c060" opacity=".9"/>
-    <rect x="40" y="7"  width="6" height="4" rx="2" fill="#f0c060" opacity=".9"/>
-    <!-- Rear lights -->
-    <rect x="18" y="53" width="6" height="4" rx="2" fill="#b83232" opacity=".9"/>
-    <rect x="40" y="53" width="6" height="4" rx="2" fill="#b83232" opacity=".9"/>
-    <!-- Wheels: outside body bounds -->
-    <rect x="10" y="11" width="7" height="11" rx="2" fill="#071118"/>
-    <rect x="47" y="11" width="7" height="11" rx="2" fill="#071118"/>
-    <rect x="10" y="42" width="7" height="11" rx="2" fill="#071118"/>
-    <rect x="47" y="42" width="7" height="11" rx="2" fill="#071118"/>
-  </svg>`;
-}
 
 // Cardinal direction → CSS rotate degrees (SVG points North = 0°)
 function dirToDeg(dir){ const m={N:0,E:90,S:180,W:270}; return dir in m ? m[dir] : 0; }
@@ -2043,22 +2012,21 @@ function step(){
     return;
   } else {
     if(v==='🚗'){
-      // Roaded: use SVG car with full bearing rotation.
-      // Non-roaded: emoji with E/W flip only.
-      let carIcon;
+      // Always use emoji 🚗 with E/W flip for straight-line,
+      // or bearing-90 rotation for roaded segments (same pattern as other ground vehicles).
+      // 🚗 points LEFT natively → bearing-90 makes it face forward on road.
+      let carTransform;
       if(isRoaded){
-        // Use SVG car (muso Nord) with true bearing — cross-platform, no emoji offset needed
-        carIcon=L.divIcon({
-          html:`<div class="token rumble" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:rotate(${bearing}deg);transform-origin:center center;">${carSVG()}</div>`,
-          className:'',iconSize:[80,80],iconAnchor:[40,40]
-        });
+        // 🚗 points LEFT natively → +90° offset to face forward (North at bearing=0)
+        carTransform=`rotate(${bearing+90}deg)`;
       } else {
         const goingWest=(bearing>180 && bearing<360);
-        carIcon=L.divIcon({
-          html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:scaleX(${goingWest?1:-1});transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
-          className:'',iconSize:[80,80],iconAnchor:[40,40]
-        });
+        carTransform=`scaleX(${goingWest?1:-1})`;
       }
+      const carIcon=L.divIcon({
+        html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:${carTransform};transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
+        className:'',iconSize:[80,80],iconAnchor:[40,40]
+      });
       addTrailPoint(pt.lat,pt.lng);
       tokenMkr.setIcon(carIcon);
       tokenMkr.setLatLng([pt.lat,pt.lng]);
