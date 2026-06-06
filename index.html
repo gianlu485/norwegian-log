@@ -2012,19 +2012,12 @@ function step(){
     return;
   } else {
     if(v==='🚗'){
-      // Always use emoji 🚗 with E/W flip for straight-line,
-      // or bearing-90 rotation for roaded segments (same pattern as other ground vehicles).
-      // 🚗 points LEFT natively → bearing+90 makes it face forward on road.
+      // 🚗 always uses E/W scaleX flip — rotate() flips the 3D emoji upside-down on iOS.
       let carTransform;
-      if(isRoaded){
-        // 🚗 points LEFT (West) natively — confirmed by straight-line branch:
-        // goingWest=true → scaleX(1) = no flip = native = left-pointing.
-        // To face North (bearing=0): rotate LEFT→UP = +90°CW → rotate(bearing+90)
-        carTransform=`rotate(${bearing+90}deg)`;
-      } else {
-        const goingWest=(bearing>180 && bearing<360);
-        carTransform=`scaleX(${goingWest?1:-1})`;
-      }
+      // 🚗 is a 3D emoji — rotate() flips it upside-down at certain angles.
+      // Use E/W scaleX flip for both roaded and straight-line segments.
+      const goingWest=(bearing>180 && bearing<360);
+      carTransform=`scaleX(${goingWest?1:-1})`;
       const carIcon=L.divIcon({
         html:`<div style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;transform:${carTransform};transform-origin:center center;"><div class="token rumble">🚗</div></div>`,
         className:'',iconSize:[80,80],iconAnchor:[40,40]
