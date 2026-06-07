@@ -272,9 +272,47 @@ body{
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;transition:all .15s;
   touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  -webkit-appearance:none;
   flex-shrink:0;
+  padding:0;
 }
 .leg-v.on{background:rgba(27,58,82,.18);border-color:var(--fjord);box-shadow:0 1px 4px rgba(27,58,82,.2);}
+.leg-zoom{
+  display:flex;align-items:center;gap:.25rem;flex-shrink:0;
+}
+.leg-zoom-badge{
+  font-family:var(--FU);font-size:.52rem;letter-spacing:.08em;
+  color:rgba(26,37,48,.45);
+  background:rgba(26,37,48,.07);
+  border:1px solid rgba(26,37,48,.13);border-radius:4px;
+  min-height:28px;min-width:36px;
+  padding:0 7px;
+  cursor:pointer;white-space:nowrap;
+  transition:all .15s;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-appearance:none;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.leg-zoom-badge.manual{color:var(--teal);border-color:var(--teal);background:rgba(46,139,122,.08);}
+.leg-zoom-badge:active{opacity:.7;}
+.leg-zoom-reset{
+  font-size:.62rem;line-height:1;
+  color:rgba(26,37,48,.25);background:none;border:none;
+  cursor:pointer;padding:0 2px;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-appearance:none;
+  min-height:28px;min-width:20px;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.leg-zoom-reset:active{color:var(--rorbu);}
+.leg-zoom-input{
+  width:42px;font-size:.75rem;text-align:center;
+  border:1px solid var(--teal);border-radius:3px;
+  padding:2px 4px;background:#fff;color:var(--ink);
+  min-height:28px;
+}
 /* stops */
 .stop-item{display:flex;align-items:center;gap:.45rem;padding:.42rem .6rem;background:rgba(255,255,255,.65);border:1px solid rgba(26,37,48,.09);border-radius:4px;margin-bottom:.28rem;}
 .stop-dot{width:18px;height:18px;border-radius:50%;background:var(--fjord);color:#fff;font-size:.6rem;font-family:var(--FU);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -316,7 +354,8 @@ body{
   touch-action:manipulation;
 }
 .m-thumb:hover .m-del,
-.m-thumb:active .m-del{ opacity:1; }border-radius:4px;border:1.5px dashed rgba(26,53,82,.2);background:rgba(255,255,255,.5);color:var(--fjord);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;touch-action:manipulation;}
+.m-thumb:active .m-del{ opacity:1; }
+.m-add{border-radius:4px;border:1.5px dashed rgba(26,53,82,.2);background:rgba(255,255,255,.5);color:var(--fjord);font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;touch-action:manipulation;}
 .m-add:hover{background:rgba(26,53,82,.07);}
 .m-add input{position:absolute;inset:0;opacity:0;cursor:pointer;}
 
@@ -632,21 +671,21 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
     </div>
     <div class="bubble" id="bubble"></div>
     <div class="map-ctrls">
-      <button class="btn btn-play" onclick="playAll()">▶ Play</button>
-      <button class="btn btn-ghost-dk" onclick="pauseAnim()">⏸</button>
-      <button class="btn btn-ghost-dk" onclick="resetAnim()">⏮</button>
+      <button type="button" class="btn btn-play" onclick="playAll()">▶ Play</button>
+      <button type="button" class="btn btn-ghost-dk" onclick="pauseAnim()">⏸</button>
+      <button type="button" class="btn btn-ghost-dk" onclick="resetAnim()">⏮</button>
     </div>
   </div><!-- /main -->
 
   <!-- BOTTOM NAV -->
   <nav class="bottom-nav">
-    <button class="nav-btn on" id="nav-days" onclick="navTap('days')">
+    <button type="button" class="nav-btn on" id="nav-days" onclick="navTap('days')">
       <span class="nav-ico">📅</span>Days
     </button>
-    <button class="nav-btn" id="nav-vehicle" onclick="navTap('vehicle')">
+    <button type="button" class="nav-btn" id="nav-vehicle" onclick="navTap('vehicle')">
       <span class="nav-ico">🚗</span>Vehicle
     </button>
-    <button class="nav-btn" id="nav-settings" onclick="navTap('settings')">
+    <button type="button" class="nav-btn" id="nav-settings" onclick="navTap('settings')">
       <span class="nav-ico">⚙️</span>Settings
     </button>
   </nav>
@@ -658,7 +697,7 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
     </div>
     <div class="panels">
       <div class="panel on" id="panel-days">
-        <button class="btn btn-fjord btn-full" style="margin-bottom:.75rem" onclick="addDay()">+ Add Day</button>
+        <button type="button" class="btn btn-fjord btn-full" style="margin-bottom:.75rem" onclick="addDay()">+ Add Day</button>
         <div id="days-list"></div>
       </div>
       <div class="panel" id="panel-vehicle">
@@ -678,15 +717,15 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
         <div class="divider"></div>
         <div class="sec-lbl">Music playlist</div>
         <p class="muted" style="font-size:.78rem;margin-bottom:.6rem">Tracks play in sequence during the whole animation, with 5s fade in/out.</p>
-        <button class="btn btn-teal btn-full btn-sm upload-wrap" style="margin-bottom:.5rem">
+        <button type="button" class="btn btn-teal btn-full btn-sm upload-wrap" style="margin-bottom:.5rem">
           ♪ Add tracks
           <input type="file" accept="audio/*" multiple onchange="_plAddFiles(event)">
         </button>
         <div id="pl-list"><p class="muted" style="font-size:.78rem">No tracks yet.</p></div>
         <div class="divider"></div>
         <p class="muted" style="font-size:.78rem;margin-bottom:.6rem">Saves everything including photos &amp; videos. Load it tomorrow to continue.</p>
-        <button class="btn btn-teal btn-full" style="margin-bottom:.45rem" onclick="saveJourney()">💾 Save journey</button>
-        <button class="btn btn-fjord btn-full upload-wrap" style="margin-bottom:.45rem">
+        <button type="button" class="btn btn-teal btn-full" style="margin-bottom:.45rem" onclick="saveJourney()">💾 Save journey</button>
+        <button type="button" class="btn btn-fjord btn-full upload-wrap" style="margin-bottom:.45rem">
           📂 Load journey
           <input type="file" accept=".json" onchange="loadJourney(event)">
         </button>
@@ -699,7 +738,7 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
           <span class="speed-lbl">Fast</span>
         </div>
         <div class="divider"></div>
-        <button class="btn btn-rorbu btn-full btn-sm" onclick="clearAll()">Clear all days</button>
+        <button type="button" class="btn btn-rorbu btn-full btn-sm" onclick="clearAll()">Clear all days</button>
       </div>
     </div>
   </div><!-- /sheet -->
@@ -713,9 +752,9 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
   <div class="ov-title" id="ov-title">Day 1</div>
   <div class="ov-gallery" id="ov-gallery"></div>
   <div class="ov-actions">
-    <button class="btn btn-ghost-dk" onclick="closeOverlay(false)">Stop</button>
-    <button class="btn btn-fjord" onclick="goBackToDays()">📅 Edit Days</button>
-    <button class="btn btn-rorbu" id="ov-next-btn" onclick="closeOverlay(true)">Continue →</button>
+    <button type="button" class="btn btn-ghost-dk" onclick="closeOverlay(false)">Stop</button>
+    <button type="button" class="btn btn-fjord" onclick="goBackToDays()">📅 Edit Days</button>
+    <button type="button" class="btn btn-rorbu" id="ov-next-btn" onclick="closeOverlay(true)">Continue →</button>
   </div>
   <div class="ov-line"></div>
 </div>
@@ -727,16 +766,16 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
   <div id="sp-media-wrap"></div>
   <div class="stop-popup-counter" id="sp-counter"></div>
   <div class="stop-popup-btns">
-    <button class="stop-popup-nav" onclick="spNav(-1)">‹</button>
-    <button class="stop-popup-close" onclick="closeStopPopup()">Continue →</button>
-    <button class="stop-popup-nav" onclick="spNav(1)">›</button>
+    <button type="button" class="stop-popup-nav" onclick="spNav(-1)">‹</button>
+    <button type="button" class="stop-popup-close" onclick="closeStopPopup()">Continue →</button>
+    <button type="button" class="stop-popup-nav" onclick="spNav(1)">›</button>
   </div>
 </div>
 
 <!-- LIGHTBOX -->
 <div class="lb" id="lb" onclick="lbBgClick(event)">
   <div class="lb-inner" id="lb-inner">
-    <button class="lb-close" onclick="closeLb()">Close ✕</button>
+    <button type="button" class="lb-close" onclick="closeLb()">Close ✕</button>
   </div>
 </div>
 
@@ -804,7 +843,7 @@ function _plRenderList(){
     <div class="pl-row${i===_plIdx&&!_plEl.paused?' pl-row-playing':''}">
       <span class="pl-ico">${i===_plIdx&&!_plEl.paused?'♪':i+1}</span>
       <span class="pl-name">${t.name}</span>
-      <button class="stop-del2" onclick="_plRemove(${i})">✕</button>
+      <button type="button" class="stop-del2" onclick="_plRemove(${i})">✕</button>
     </div>`).join('');
 }
 function _plRemove(i){
@@ -836,7 +875,7 @@ const VEHICLES=[
 (function initVehicles(){
   const g=document.getElementById('vgrid');
   g.innerHTML=VEHICLES.map(v=>`
-    <button class="vbtn${v.e===vehicle?' on':''}" onclick="selVehicle('${v.e}',this)">
+    <button type="button" class="vbtn${v.e===vehicle?' on':''}" onclick="selVehicle('${v.e}',this)">
       <span class="ve">${v.e}</span><span class="vn">${v.n}</span>
     </button>`).join('');
 })();
@@ -889,7 +928,7 @@ function addDay(){
     if(prev.stops.length) dep={...prev.stops[prev.stops.length-1],inherited:true};
     else if(prev.dep) dep={...prev.dep,inherited:true};
   }
-  days.push({name:`Day ${i+1}`,dep,stops:[],legVehicles:[],legQuotes:[],depMedia:[],media:[]});
+  days.push({name:`Day ${i+1}`,dep,stops:[],legVehicles:[],legQuotes:[],legZooms:[],depMedia:[],media:[]});
   layers.push({depMarker:null,markers:[],line:null});
   if(dep) placeDep(i);
   renderList();
@@ -940,18 +979,18 @@ function buildCard(d,i){
           <span class="stop-name">${d.dep.name}</span>
           <button type="button" class="stop-photo-btn${hasDepMedia?' has-media':''}" title="${hasDepMedia?d.depMedia.length+' media':'Add photo/video'}" onclick="document.getElementById('dep-file-${i}').click()">${hasDepMedia?'📸':'📷'}</button>
           <input type="file" id="dep-file-${i}" accept="image/*,video/*" multiple style="display:none" onchange="uploadDepMedia(${i},event)">
-          <button class="stop-del2" onclick="clearDep(${i})">✕</button>
+          <button type="button" class="stop-del2" onclick="clearDep(${i})">✕</button>
         </div>
         ${hasDepMedia?`<div class="media-strip" style="padding:.3rem 0 .1rem 4px;">${d.depMedia.map((m,mi)=>`
           <div class="m-thumb" style="width:40px;height:40px;">
             ${m.type==='video'?`<video src="${m.url}" muted></video><div class="vbadge">▶</div>`:`<img src="${m.url}">`}
-            <button class="m-del" style="opacity:1" onclick="event.stopPropagation();removeDepMedia(${i},${mi})">✕</button>
+            <button type="button" class="m-del" style="opacity:1" onclick="event.stopPropagation();removeDepMedia(${i},${mi})">✕</button>
           </div>`).join('')}</div>`:''}`;
     } else {
       depHTML=`<div class="sec-lbl">Departure</div>
         <div class="search-row">
           <input type="text" id="dep-${i}" placeholder="Starting city (e.g. Milan)…">
-          <button class="btn btn-fjord btn-sm" onclick="searchDep(${i})">Set</button>
+          <button type="button" class="btn btn-fjord btn-sm" onclick="searchDep(${i})">Set</button>
         </div>`;
     }
   } else {
@@ -967,15 +1006,15 @@ function buildCard(d,i){
       ${hasDepMediaI?`<div class="media-strip" style="padding:.3rem 0 .1rem 4px;">${d.depMedia.map((m,mi)=>`
         <div class="m-thumb" style="width:40px;height:40px;">
           ${m.type==='video'?`<video src="${m.url}" muted></video><div class="vbadge">▶</div>`:`<img src="${m.url}">`}
-          <button class="m-del" style="opacity:1" onclick="event.stopPropagation();removeDepMedia(${i},${mi})">✕</button>
+          <button type="button" class="m-del" style="opacity:1" onclick="event.stopPropagation();removeDepMedia(${i},${mi})">✕</button>
         </div>`).join('')}</div>`:''}`;
   }
 
   // Build legs: one leg per segment (dep→stop0, stop0→stop1, …)
   // leg index = index of the DESTINATION stop (0 = dep→stop[0])
-  const LEG_VEHICLES=['🚗','✈️','⛵','🚂','🚴','🏍','🚌','🚁','🛸','🚶'];
+  const LEG_VEHICLES=['🚗','✈️','⛵','🚂','🚴','🏍','🚌','🚁','🚶'];
   function legSel(di,li,cur){
-    return LEG_VEHICLES.map(v=>`<span class="leg-v${v===cur?' on':''}" onclick="setLegVehicle(${di},${li},'${v}')">${v}</span>`).join('');
+    return LEG_VEHICLES.map(v=>`<button type="button" class="leg-v${v===cur?' on':''}" onclick="setLegVehicle(${di},${li},'${v}')">${v}</button>`).join('');
   }
 
   let stopsHTML='';
@@ -983,12 +1022,15 @@ function buildCard(d,i){
   if(d.dep && d.stops.length){
     const cur=d.legVehicles[0]||'🚗';
     const _lq0=(d.legQuotes&&d.legQuotes[0])||'';
+    const _mz0=(d.legZooms&&d.legZooms[0]!=null)?d.legZooms[0]:undefined;
+    const _az0=zoomForDist(L.latLng(d.dep.lat,d.dep.lng).distanceTo(L.latLng(d.stops[0].lat,d.stops[0].lng)));
     stopsHTML+=`<div class="leg-row" style="flex-wrap:wrap;">
-      <div style="display:flex;align-items:center;gap:.4rem;width:100%;">
+      <div style="display:flex;align-items:center;gap:.4rem;width:100%;flex-wrap:wrap;row-gap:.3rem;">
         <span class="leg-lbl">Leg 1</span>
         <span class="leg-arrow">→</span>
         <span class="leg-dest">${d.stops[0].name}</span>
         <div class="leg-vsel">${legSel(i,0,cur)}</div>
+        ${legZoomBadgeHTML(i,0,_az0,_mz0)}
       </div>
       <input type="text" placeholder="Quote on this leg… (optional)" value="${_lq0.replace(/[<>"]/g,c=>({'<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}"
         style="font-size:13px;min-height:30px;padding:.25rem .5rem;width:100%;opacity:.75;font-style:italic;margin-top:.2rem;"
@@ -1005,20 +1047,20 @@ function buildCard(d,i){
         <span class="stop-name">${s.name}</span>
         <button type="button" class="stop-photo-btn${hasStopMedia?' has-media':''}" title="${hasStopMedia?s.media.length+' media':'Add photo/video'}" onclick="document.getElementById('stop-file-${i}-${si}').click()">${hasStopMedia?'📸':'📷'}</button>
         <input type="file" id="stop-file-${i}-${si}" accept="image/*,video/*" multiple style="display:none" onchange="uploadStopMedia(${i},${si},event)">
-        <button class="stop-edit2" onclick="toggleStopEdit(${i},${si})">✏️</button>
-        <button class="stop-del2" onclick="removeStop(${i},${si})">✕</button>
+        <button type="button" class="stop-edit2" onclick="toggleStopEdit(${i},${si})">✏️</button>
+        <button type="button" class="stop-del2" onclick="removeStop(${i},${si})">✕</button>
       </div>
       <div id="stop-edit-${i}-${si}" class="stop-edit-panel" style="display:none;width:100%;margin-top:.25rem;">
         <div class="stop-edit-row">
           <input type="text" id="stop-edit-name-${i}-${si}" value="${s.name.replace(/"/g,'&quot;')}" placeholder="Stop name…">
-          <button class="stop-edit-btn" onclick="saveStopName(${i},${si})">✓ Name</button>
-          <button class="stop-edit-btn" id="stop-move-btn-${i}-${si}" onclick="startMoveStop(${i},${si})">📍 Move</button>
+          <button type="button" class="stop-edit-btn" onclick="saveStopName(${i},${si})">✓ Name</button>
+          <button type="button" class="stop-edit-btn" id="stop-move-btn-${i}-${si}" onclick="startMoveStop(${i},${si})">📍 Move</button>
         </div>
       </div>
       ${hasStopMedia?`<div class="media-strip" style="padding:.15rem 0 .1rem 22px;">${s.media.map((m,mi)=>`
         <div class="m-thumb" style="width:40px;height:40px;" onclick="void(0)">
           ${m.type==='video'?`<video src="${m.url}" muted></video><div class="vbadge">▶</div>`:`<img src="${m.url}">`}
-          <button class="m-del" style="opacity:1" onclick="event.stopPropagation();removeStopMedia(${i},${si},${mi})">✕</button>
+          <button type="button" class="m-del" style="opacity:1" onclick="event.stopPropagation();removeStopMedia(${i},${si},${mi})">✕</button>
         </div>`).join('')}</div>`:''}
       <input type="text" placeholder="Quote at this stop… (optional)" value="${_sq.replace(/[<>"]/g,c=>({'<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}"
         style="font-size:13px;min-height:34px;padding:.3rem .6rem;width:100%;opacity:.8;font-style:italic;"
@@ -1029,12 +1071,15 @@ function buildCard(d,i){
     if(si+1 < d.stops.length){
       const cur=d.legVehicles[si+1]||'🚗';
       const _lqN=(d.legQuotes&&d.legQuotes[si+1])||'';
+      const _mzN=(d.legZooms&&d.legZooms[si+1]!=null)?d.legZooms[si+1]:undefined;
+      const _azN=zoomForDist(L.latLng(d.stops[si].lat,d.stops[si].lng).distanceTo(L.latLng(d.stops[si+1].lat,d.stops[si+1].lng)));
       legRow=`<div class="leg-row" style="flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:.4rem;width:100%;">
+        <div style="display:flex;align-items:center;gap:.4rem;width:100%;flex-wrap:wrap;row-gap:.3rem;">
           <span class="leg-lbl">Leg ${si+2}</span>
           <span class="leg-arrow">→</span>
           <span class="leg-dest">${d.stops[si+1].name}</span>
           <div class="leg-vsel">${legSel(i,si+1,cur)}</div>
+          ${legZoomBadgeHTML(i,si+1,_azN,_mzN)}
         </div>
         <input type="text" placeholder="Quote on this leg… (optional)" value="${_lqN.replace(/"/g,'&quot;')}" style="font-size:13px;min-height:30px;padding:.25rem .5rem;width:100%;opacity:.75;font-style:italic;margin-top:.2rem;" oninput="setLegQuote(${i},${si+1},this.value)" onblur="setLegQuote(${i},${si+1},this.value)" onchange="setLegQuote(${i},${si+1},this.value)">
       </div>`;
@@ -1045,7 +1090,7 @@ function buildCard(d,i){
   const mediaHTML=d.media.map((m,mi)=>`
     <div class="m-thumb" onclick="openLb(${i},${mi})">
       ${m.type==='video'?`<video src="${m.url}" muted></video><div class="vbadge">▶</div>`:`<img src="${m.url}">`}
-      <button class="m-del" onclick="event.stopPropagation();removeDayMedia(${i},${mi})">✕</button>
+      <button type="button" class="m-del" onclick="event.stopPropagation();removeDayMedia(${i},${mi})">✕</button>
     </div>`).join('');
 
   const pills=[
@@ -1063,7 +1108,7 @@ function buildCard(d,i){
       </div>
       ${pills?`<div class="pills">${pills}</div>`:''}
       <span class="day-chevron">›</span>
-      <button class="day-del" onclick="removeDay(event,${i})">✕</button>
+      <button type="button" class="day-del" onclick="removeDay(event,${i})">✕</button>
     </div>
     <div class="day-body">
       <div>${depHTML}</div>
@@ -1073,7 +1118,7 @@ function buildCard(d,i){
         <div id="stops-${i}">${stopsHTML||'<p class="muted" style="font-size:.82rem">No stops yet.</p>'}</div>
         <div class="search-row" style="margin-top:.45rem">
           <input type="text" id="si-${i}" placeholder="Add stop or destination…">
-          <button class="btn btn-fjord btn-sm" onclick="searchStop(${i})">+</button>
+          <button type="button" class="btn btn-fjord btn-sm" onclick="searchStop(${i})">+</button>
         </div>
         <p class="muted" style="font-size:.72rem;margin-top:.3rem">💡 Or tap the map with this card open</p>
       </div>
@@ -1082,7 +1127,7 @@ function buildCard(d,i){
         <div class="sec-lbl">Photos & Videos</div>
         <div class="media-strip">
           ${mediaHTML}
-          <button class="m-add" onclick="document.getElementById('day-file-${i}').click()">+</button>
+          <button type="button" class="m-add" onclick="document.getElementById('day-file-${i}').click()">+</button>
           <input type="file" id="day-file-${i}" accept="image/*,video/*" multiple style="display:none" onchange="uploadMedia(${i},event)">
         </div>
       </div>
@@ -1243,6 +1288,42 @@ function setLegVehicle(dayI, legIdx, v){
   reopen(dayI);
 }
 
+// ── Leg zoom override ──
+function setLegZoom(dayI, legIdx, val){
+  if(!days[dayI].legZooms) days[dayI].legZooms=[];
+  const n=parseInt(val,10);
+  if(n>=1&&n<=18) days[dayI].legZooms[legIdx]=n;
+}
+function showLegZoomInput(dayI, legIdx, currentVal){
+  const badge=document.getElementById(`lzb-${dayI}-${legIdx}`);
+  if(!badge) return;
+  const input=document.createElement('input');
+  input.type='text';input.inputMode='numeric';input.pattern='[0-9]*';
+  input.min=1;input.max=18;input.value=currentVal;
+  input.className='leg-zoom-input';
+  let committed=false;
+  function commit(){
+    if(committed) return;
+    if(!document.body.contains(input)) return; // DOM replaced (e.g. reset ✕ tapped while input open)
+    committed=true;
+    const n=parseInt(input.value,10);
+    if(n>=1&&n<=18) setLegZoom(dayI,legIdx,n);
+    else clearLegZoom(dayI,legIdx);
+    reopen(dayI);
+  }
+  input.onblur=commit;
+  input.onkeydown=e=>{
+    if(e.key==='Enter'){e.preventDefault();commit();}
+    if(e.key==='Escape'){committed=true;clearLegZoom(dayI,legIdx);reopen(dayI);}
+  };
+  badge.replaceWith(input);
+  setTimeout(()=>{input.focus();input.select();},60);
+}
+function clearLegZoom(dayI, legIdx){
+  if(!days[dayI].legZooms) days[dayI].legZooms=[];
+  days[dayI].legZooms[legIdx]=null; // null = auto (not undefined, avoids sparse array issues)
+}
+
 function removeStop(dayI,si){
   const dl=layers[dayI];
   map.removeLayer(dl.markers[si]);
@@ -1388,7 +1469,7 @@ function uploadMedia(i,e){
 function openLb(di,mi){
   const m=days[di].media[mi];
   const inner=document.getElementById('lb-inner');
-  inner.innerHTML=`<button class="lb-close" onclick="closeLb()">Close ✕</button>`;
+  inner.innerHTML=`<button type="button" class="lb-close" onclick="closeLb()">Close ✕</button>`;
   if(m.type==='video'){
     const v=document.createElement('video'); v.src=m.url; v.controls=true; v.autoplay=true; inner.appendChild(v);
   } else {
@@ -1477,7 +1558,23 @@ function planeSVG(){
 // N = nose up, E = nose right, S = nose down, W = nose left.
 // Colors: body --fjord (#1b3a52), windows rgba(200,221,232,.7), wheels #071118
 
-// Cardinal direction → CSS rotate degrees (SVG points North = 0°)
+// ── Leg zoom badge HTML ──
+// autoZoom: computed default (from dist/vehicle). manualZoom: user override or undefined.
+function legZoomBadgeHTML(dayI, legIdx, autoZoom, manualZoom){
+  const isManual = manualZoom !== undefined && manualZoom !== null;
+  const display = isManual ? manualZoom : autoZoom;
+  const cls = isManual ? 'leg-zoom-badge manual' : 'leg-zoom-badge';
+  const resetBtn = isManual
+    ? `<button type="button" class="leg-zoom-reset" title="Reset a automatico" onclick="event.stopPropagation();clearLegZoom(${dayI},${legIdx});reopen(${dayI})">✕</button>`
+    : '';
+  return `<div class="leg-zoom">
+    <button type="button" class="${cls}" id="lzb-${dayI}-${legIdx}"
+      onclick="showLegZoomInput(${dayI},${legIdx},${display})"
+    >⊕ ${display}</button>${resetBtn}
+  </div>`;
+}
+
+
 function dirToDeg(dir){ const m={N:0,E:90,S:180,W:270}; return dir in m ? m[dir] : 0; }
 
 function tokenIcon(v, angle, dir){
@@ -1928,13 +2025,14 @@ function step(){
   let _setViewThisFrame=false;
   if(legChanged){
     _curLegIdx = ptLegIdx;
-    // Use actual route distance for zoom (road dist > crow-flies for curved roads)
+    // Manual zoom override takes precedence; fallback to auto (dist-based or vehicle-based)
+    const d=days[curDay];
+    const manualZoom = d.legZooms && d.legZooms[ptLegIdx] != null ? d.legZooms[ptLegIdx] : null;
     const legDist = _legRouteDist[ptLegIdx] || 0;
-    const targetZoom = legDist > 0 ? zoomForDist(legDist) : getZoomForVehicle(pt.v||vehicle);
+    const targetZoom = manualZoom !== null ? manualZoom : (legDist > 0 ? zoomForDist(legDist) : getZoomForVehicle(pt.v||vehicle));
     // setView positions map at leg start; skip redundant panTo this frame
     map.setView([pt.lat,pt.lng],targetZoom,{animate:false});
     _setViewThisFrame=true;
-    const d=days[curDay];
     const lq = d.legQuotes && d.legQuotes[ptLegIdx];
     if(lq && lq.trim()){ clearTimeout(_bubbleTO); _bubbleTO=setTimeout(()=>showBubble(lq), 1500); }
     else hideBubble();
@@ -2226,6 +2324,7 @@ async function saveJourney(){
         stops:stopsOut,
         legVehicles:d.legVehicles||[],
         legQuotes:d.legQuotes||[],
+        legZooms:d.legZooms||[],
         depMedia:depMedia,
         media:dayMedia,
         musicName:d.musicName||null,
@@ -2288,6 +2387,7 @@ function loadJourney(e){
           })),
           legVehicles:d.legVehicles||[],
           legQuotes:d.legQuotes||[],
+          legZooms:d.legZooms||[],
           depMedia:restoreMedia(d.depMedia),
           media:restoreMedia(d.media),
           musicUrl:null,
