@@ -249,6 +249,17 @@ body{
 .day-card.open .day-chevron{transform:rotate(90deg);color:var(--rorbu);}
 .day-del{background:none;border:none;color:rgba(26,37,48,.2);cursor:pointer;font-size:.82rem;padding:2px 5px;flex-shrink:0;touch-action:manipulation;}
 .day-del:hover{color:var(--rorbu);}
+.day-play-btn{
+  background:none;border:1px solid rgba(46,139,122,.35);border-radius:20px;
+  color:var(--teal);font-size:.58rem;font-family:var(--FU);
+  letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 9px;cursor:pointer;flex-shrink:0;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:all .18s;white-space:nowrap;min-height:26px;
+  display:inline-flex;align-items:center;gap:.25rem;
+}
+.day-play-btn:hover,.day-play-btn:active{background:rgba(46,139,122,.12);border-color:var(--teal);}
+.day-play-btn.playing{background:var(--teal);color:#fff;border-color:var(--teal);}
 .day-body{display:none;padding:.75rem;background:rgba(242,237,228,.5);border-top:1px solid rgba(26,37,48,.07);flex-direction:column;gap:.7rem;}
 .day-card.open .day-body{display:flex;}
 
@@ -1107,6 +1118,7 @@ function buildCard(d,i){
         <div class="day-meta">${total} point${total!==1?'s':''}</div>
       </div>
       ${pills?`<div class="pills">${pills}</div>`:''}
+      <button type="button" class="day-play-btn" id="dpb-${i}" onclick="event.stopPropagation();playDay(${i})">▶</button>
       <span class="day-chevron">›</span>
       <button type="button" class="day-del" onclick="removeDay(event,${i})">✕</button>
     </div>
@@ -1450,6 +1462,10 @@ function reopen(i){
   setTimeout(()=>{
     const c=document.getElementById('dc-'+i);
     if(c) c.classList.add('open');
+    // Restore playing state on day play buttons if animation is active
+    if(animating){
+      days.forEach((_,j)=>{const b=document.getElementById('dpb-'+j);if(b)b.classList.toggle('playing',j===curDay);});
+    }
   },10);
 }
 
@@ -1799,16 +1815,38 @@ function playAll(){
   if(!days.length){alert('Add at least one day with 2+ points!');return;}
   if(_routeLoading) return;
   if(animating&&!paused) return;
-  if(paused){resume();return;}
+  if(paused){_playSingleDay=false; resume();return;}
   curDay=0; curIdx=0; animating=true; paused=false;
   startDay(0);
+}
+
+// Play a single day (i) and stop when it ends — no auto-continue to Day i+1.
+let _playSingleDay = false; // flag: true = stop after current day, false = play all
+
+function playDay(i){
+  if(!days.length){alert('Add at least one day with 2+ points!');return;}
+  if(_routeLoading) return;
+  // If already animating this exact day in single-day mode, act as pause/resume
+  if(animating && !paused && _playSingleDay && curDay===i){pauseAnim();return;}
+  if(paused && _playSingleDay && curDay===i){resume();return;}
+  // Otherwise reset and start fresh
+  if(animating||paused) resetAnim();
+  const pts=allPts(i);
+  if(pts.length<2){alert(`Day ${i+1} needs at least 2 points to play!`);return;}
+  _playSingleDay=true;
+  curDay=i; curIdx=0; animating=true; paused=false;
+  startDay(i);
 }
 
 function startDay(i){
   if(i>=days.length){finish();return;}
   const d=days[i];
   const pts=allPts(i);
-  if(pts.length<2){startDay(i+1);return;}
+  if(pts.length<2){
+    // In single-day mode: stop here — don't skip to next day
+    if(_playSingleDay){finish();return;}
+    startDay(i+1);return;
+  }
   curDay=i; curIdx=0;
 
   // highlight card
@@ -1816,6 +1854,8 @@ function startDay(i){
   const card=document.getElementById('dc-'+i);
   if(card){card.classList.add('active');card.scrollIntoView({behavior:'smooth',block:'nearest'});}
   document.querySelectorAll('[id^="dn-"]').forEach((el,j)=>el.classList.toggle('playing',j===i));
+  // update per-day play buttons
+  days.forEach((_,j)=>{const b=document.getElementById('dpb-'+j);if(b)b.classList.toggle('playing',j===i);});
 
   showLbl(d.name);
   fitDay(i);
@@ -2184,7 +2224,7 @@ function resume(){
   step();
 }
 function resetAnim(){
-  clearTimeout(animTO); clearTimeout(_bubbleTO); animating=false; paused=false; _routeLoading=false; _curLegV=null; _curLegIdx=-1; _legRouteDist={}; hideBubble(); map.closePopup();
+  clearTimeout(animTO); clearTimeout(_bubbleTO); animating=false; paused=false; _routeLoading=false; _curLegV=null; _curLegIdx=-1; _legRouteDist={}; _playSingleDay=false; hideBubble(); map.closePopup();
   clearTrail();
   // Reset popup shown flags
   days.forEach(d=>d.stops.forEach(s=>{ s._popupShown=false; }));
@@ -2198,13 +2238,15 @@ function resetAnim(){
   hideLbl();
   document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('active'));
   document.querySelectorAll('[id^="dn-"]').forEach(el=>el.classList.remove('playing'));
+  days.forEach((_,j)=>{const b=document.getElementById('dpb-'+j);if(b)b.classList.remove('playing');});
 }
 function finish(){
-  animating=false; _plStop();
+  animating=false; _playSingleDay=false; _plStop();
   document.getElementById('dot').classList.remove('on');
   document.getElementById('prog-fill').style.width='100%';
   document.getElementById('prog-pct').textContent='100%';
   document.getElementById('prog-lbl').textContent='Journey complete ✓';
+  days.forEach((_,j)=>{const b=document.getElementById('dpb-'+j);if(b)b.classList.remove('playing');});
   hideLbl();
 }
 
@@ -2225,7 +2267,8 @@ function showTransition(i){
         ${m.type==='video'?`<video src="${m.url}" muted></video>`:`<img src="${m.url}">`}
       </div>`).join('');
   }
-  const hasNext=days.slice(i+1).some((_,j)=>allPts(i+1+j).length>=2);
+  // In single-day mode: never show "Continue" button
+  const hasNext = !_playSingleDay && days.slice(i+1).some((_,j)=>allPts(i+1+j).length>=2);
   const nb=document.getElementById('ov-next-btn');
   nb.style.display=hasNext?'inline-flex':'none';
   if(hasNext){
@@ -2244,7 +2287,7 @@ function goBackToDays(){
 
 function closeOverlay(go){
   document.getElementById('overlay').classList.remove('show');
-  if(go){
+  if(go && !_playSingleDay){
     const off=days.slice(curDay+1).findIndex((_,j)=>allPts(curDay+1+j).length>=2);
     if(off!==-1) startDay(curDay+1+off); else finish();
   } else finish();
