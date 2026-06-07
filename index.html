@@ -534,6 +534,45 @@ input::placeholder{color:rgba(26,37,48,.3);font-style:italic;}
 .stop-edit2{background:none;border:none;color:rgba(26,37,48,.3);cursor:pointer;font-size:.75rem;touch-action:manipulation;padding:2px 4px;}
 .stop-edit2:hover{color:var(--teal);}
 
+/* ── INSERT BETWEEN STOPS ── */
+.insert-row{
+  display:flex;align-items:center;gap:.3rem;
+  margin:.1rem 0;
+  min-height:24px;
+}
+.insert-btn{
+  background:none;border:1px dashed rgba(46,139,122,.35);border-radius:20px;
+  color:rgba(46,139,122,.6);font-size:.62rem;font-family:var(--FU);
+  letter-spacing:.1em;padding:2px 8px;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:all .18s;white-space:nowrap;min-height:22px;
+  display:inline-flex;align-items:center;gap:.2rem;
+}
+.insert-btn:hover,.insert-btn:active{background:rgba(46,139,122,.08);border-color:var(--teal);color:var(--teal);}
+.insert-inline{
+  display:none;flex:1;align-items:center;gap:.35rem;
+  background:rgba(46,139,122,.06);border:1px solid rgba(46,139,122,.2);
+  border-radius:5px;padding:.25rem .4rem;
+}
+.insert-inline.open{display:flex;}
+.insert-inline input[type=text]{
+  flex:1;font-size:16px;min-height:32px;padding:.2rem .45rem;
+  border-color:rgba(46,139,122,.3);
+}
+.insert-inline input[type=text]:focus{border-color:var(--teal);box-shadow:0 0 0 2px rgba(46,139,122,.12);}
+.insert-confirm-btn{
+  background:var(--teal);color:#fff;border:none;border-radius:3px;
+  font-family:var(--FU);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.25rem .55rem;cursor:pointer;white-space:nowrap;
+  min-height:32px;touch-action:manipulation;
+}
+.insert-confirm-btn:active{background:var(--teal-lt);}
+.insert-cancel-btn{
+  background:none;border:none;color:rgba(26,37,48,.3);
+  cursor:pointer;font-size:.75rem;padding:2px 4px;
+  touch-action:manipulation;min-height:32px;
+}
+
 /* ── STOP ITEM WITH PHOTO BTN ── */
 .stop-photo-btn{
   width:32px;height:32px;border-radius:5px;
@@ -1078,8 +1117,12 @@ function buildCard(d,i){
         oninput="setStopQuote(${i},${si},this.value)" onblur="setStopQuote(${i},${si},this.value)" onchange="setStopQuote(${i},${si},this.value)">
     </div>`;
     // Leg si+1: stop[si] → stop[si+1]
+    // Insert row appears AFTER this stop and BEFORE the next leg, only between two stops
     let legRow='';
+    let insertRow='';
     if(si+1 < d.stops.length){
+      // Insert between stop[si] and stop[si+1]
+      insertRow = insertRowHTML(i, si);
       const cur=d.legVehicles[si+1]||'🚗';
       const _lqN=(d.legQuotes&&d.legQuotes[si+1])||'';
       const _mzN=(d.legZooms&&d.legZooms[si+1]!=null)?d.legZooms[si+1]:undefined;
@@ -1095,7 +1138,8 @@ function buildCard(d,i){
         <input type="text" placeholder="Quote on this leg… (optional)" value="${_lqN.replace(/"/g,'&quot;')}" style="font-size:13px;min-height:30px;padding:.25rem .5rem;width:100%;opacity:.75;font-style:italic;margin-top:.2rem;" oninput="setLegQuote(${i},${si+1},this.value)" onblur="setLegQuote(${i},${si+1},this.value)" onchange="setLegQuote(${i},${si+1},this.value)">
       </div>`;
     }
-    return stopRow+legRow;
+    // Order: stopRow → insertRow (＋) → legRow (the leg TO the next stop)
+    return stopRow + insertRow + legRow;
   }).join('');
 
   const mediaHTML=d.media.map((m,mi)=>`
@@ -1297,6 +1341,111 @@ function setLegQuote(dayI, legIdx, val){
 }
 function setLegVehicle(dayI, legIdx, v){
   days[dayI].legVehicles[legIdx] = v;
+  reopen(dayI);
+}
+
+// ── INSERT BETWEEN STOPS ──
+
+// Returns HTML for the insert-row between stops.
+// afterIdx: -1 = after dep (before stop[0]), 0..n-2 = after stop[afterIdx]
+function insertRowHTML(dayI, afterIdx){
+  const id=`ins-${dayI}-${afterIdx}`;
+  return `<div class="insert-row" id="${id}-wrap">
+    <button type="button" class="insert-btn" onclick="toggleInsertRow(${dayI},${afterIdx})">＋ insert stop</button>
+    <div class="insert-inline" id="${id}-inline">
+      <input type="text" id="${id}-inp" placeholder="City name…" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmInsertStop(${dayI},${afterIdx});}if(event.key==='Escape'){toggleInsertRow(${dayI},${afterIdx});}">
+      <button type="button" class="insert-confirm-btn" onclick="confirmInsertStop(${dayI},${afterIdx})">Add</button>
+      <button type="button" class="insert-cancel-btn" onclick="toggleInsertRow(${dayI},${afterIdx})">✕</button>
+    </div>
+  </div>`;
+}
+
+let _activeInsert = null; // {dayI, afterIdx} — only one open at a time
+
+function toggleInsertRow(dayI, afterIdx){
+  const inlineId=`ins-${dayI}-${afterIdx}-inline`;
+  const inlineEl=document.getElementById(inlineId);
+  if(!inlineEl) return;
+  const isOpen=inlineEl.classList.contains('open');
+  // Close any other open insert row
+  if(_activeInsert){
+    const prevId=`ins-${_activeInsert.dayI}-${_activeInsert.afterIdx}-inline`;
+    const prevEl=document.getElementById(prevId);
+    if(prevEl) prevEl.classList.remove('open');
+    _activeInsert=null;
+  }
+  if(!isOpen){
+    inlineEl.classList.add('open');
+    _activeInsert={dayI, afterIdx};
+    const inp=document.getElementById(`ins-${dayI}-${afterIdx}-inp`);
+    if(inp) setTimeout(()=>{inp.focus();},60);
+  }
+}
+
+async function confirmInsertStop(dayI, afterIdx){
+  const inp=document.getElementById(`ins-${dayI}-${afterIdx}-inp`);
+  if(!inp) return;
+  const q=inp.value.trim();
+  if(!q) return;
+  inp.disabled=true;
+  const origPlaceholder=inp.placeholder;
+  inp.placeholder='Searching…';
+  try{
+    const pt=await geocode(q, false);
+    if(!pt){ alert(`"${q}" not found. Try a different spelling.`); return; }
+    _doInsertStop(dayI, afterIdx, pt.lat, pt.lng, q);
+  } catch(e){
+    alert('Network error. Try again.');
+  } finally {
+    if(inp){ inp.disabled=false; inp.placeholder=origPlaceholder; }
+    _activeInsert=null;
+  }
+}
+
+function _doInsertStop(dayI, afterIdx, lat, lng, name){
+  const d=days[dayI];
+  const dl=layers[dayI];
+
+  // insertIdx in stops[]: afterIdx=k means insert at k+1
+  const insertIdx = afterIdx + 1;
+
+  // Insert into stops array
+  d.stops.splice(insertIdx, 0, {lat, lng, name, media:[], quote:''});
+
+  // Insert marker at correct position
+  const icon=L.divIcon({
+    html:`<div style="background:#1b3a52;color:#eef2f5;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:'Josefin Sans',sans-serif;border:1.5px solid rgba(238,242,245,.6);box-shadow:0 2px 8px rgba(0,0,0,.7)">${insertIdx+1}</div>`,
+    className:'',iconSize:[20,20],iconAnchor:[10,10]
+  });
+  const mkr=L.marker([lat,lng],{icon}).addTo(map).bindTooltip(name,{className:'stop-lbl'});
+  dl.markers.splice(insertIdx, 0, mkr);
+
+  // Renumber ALL markers
+  dl.markers.forEach((m,idx)=>{
+    m.setIcon(L.divIcon({
+      html:`<div style="background:#1b3a52;color:#eef2f5;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:'Josefin Sans',sans-serif;border:1.5px solid rgba(238,242,245,.6);box-shadow:0 2px 8px rgba(0,0,0,.7)">${idx+1}</div>`,
+      className:'',iconSize:[20,20],iconAnchor:[10,10]
+    }));
+  });
+
+  // New leg index: dep offset + afterIdx
+  // (the new leg departs from stop[afterIdx] toward the new stop)
+  const legInsertIdx = (d.dep ? 1 : 0) + afterIdx;
+  // Inherit vehicle from the leg being split (default 🚗)
+  const inheritedV = (d.legVehicles && d.legVehicles[legInsertIdx]) || '🚗';
+
+  if(!d.legVehicles) d.legVehicles=[];
+  d.legVehicles.splice(legInsertIdx, 0, inheritedV);
+
+  if(!d.legQuotes) d.legQuotes=[];
+  d.legQuotes.splice(legInsertIdx, 0, '');
+
+  if(!d.legZooms) d.legZooms=[];
+  d.legZooms.splice(legInsertIdx, 0, null);
+
+  updateLine(dayI);
+  fitDay(dayI);
+  syncInheritance();
   reopen(dayI);
 }
 
